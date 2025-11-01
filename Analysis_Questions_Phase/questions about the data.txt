@@ -1,0 +1,401 @@
+Category 1: Efficiency, Waste, & OEE Component Analysis
+This category focuses on high-level Key Performance Indicators (KPIs) and quantifying systemic process waste.
+
+1. What are the central tendency and dispersion metrics (Mean, Median, Standard Deviation) for the efficiency_ratio?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Apply descriptive statistics (.describe()) to the efficiency_ratio column.
+
+Insight: This establishes the baseline performance (Mean/Median) and, more critically, the predictability of the line (Standard Deviation). High deviation indicates high process instability.
+
+2. What is the total quantified "Unexplained Time Loss" (Hidden Waste) in minutes?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Engineer a new column: unexplained_loss = duration_minutes - total_downtime_min - min_batch_time. Calculate the sum() of this new column.
+
+Insight: This quantifies time waste that is not being captured by existing downtime factors, representing a major opportunity for process improvement (e.g., slow changeovers, unrecorded micro-stops).
+
+3. What is the true "Performance" rate of the line (as an OEE component)?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Calculate Total_Ideal_Time = sum(min_batch_time). Calculate Total_Net_Production_Time = sum(net_production_min). The Performance rate is Total_Ideal_Time / Total_Net_Production_Time.
+
+Insight: A rate below 100% indicates that the line is running slower than its designed standard speed, even after accounting for all recorded downtime stops.
+
+4. What is the true "Availability" rate of the line (as an OEE component)?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Calculate Total_Planned_Time = sum(duration_minutes). Calculate Total_Net_Production_Time = sum(net_production_min). The Availability rate is Total_Net_Production_Time / Total_Planned_Time.
+
+Insight: This metric reveals the percentage of time the line was actually producing versus the total time it was scheduled to run.
+
+5. What is the "Perfect Batch" count, and what is its associated financial opportunity cost?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Filter the dataset for batches where total_downtime_min == 0 AND efficiency_ratio >= 1.0. Count the rows (.shape[0]).
+
+Insight: Comparing this count to the total batch count reveals the first-pass yield. The "imperfect" batches represent the sum of all time-based financial losses (downtime + performance loss).
+
+Category 2: Downtime Root Cause & Impact Analysis
+This category dives deep into why the line stops, using joins to connect downtime events to their business context.
+
+6. What are the Top 3 downtime factors by total cumulative duration (minutes)?
+
+Methodology:
+
+Data: Merge LineDowntime.csv with DowntimeFactors.csv on Factor.
+
+Action: groupby('Description')['Downtime'].sum(). Sort results descending.
+
+Insight: Identifies the most painful problems in terms of total lost production time, highlighting the highest-priority issues for engineering or process teams.
+
+7. What are the Top 3 downtime factors by frequency of occurrence?
+
+Methodology:
+
+Data: Merge LineDowntime.csv with DowntimeFactors.csv on Factor.
+
+Action: groupby('Description')['Batch'].count(). Sort results descending.
+
+Insight: Identifies the most common or "chronic" problems. A frequent, low-duration problem may indicate a different root cause (e.g., sensor issue, poor ergonomics) than an infrequent, high-duration problem.
+
+8. What is the mean duration-per-occurrence for each downtime factor?
+
+Methodology:
+
+Data: Merge LineDowntime.csv with DowntimeFactors.csv on Factor.
+
+Action: groupby('Description')['Downtime'].mean(). Sort results descending.
+
+Insight: This reveals the average "time to recover" for each issue. A high mean (e.g., "Machine Failure") suggests complex repairs, while a low mean (e.g., "Conveyor Jam") suggests quick fixes.
+
+9. What is the financial cost of "Operator Error" downtime versus "Machine/Process" downtime?
+
+Methodology:
+
+Data: Merge LineDowntime.csv with DowntimeFactors.csv on Factor.
+
+Action: groupby('Operator_Error')['Downtime'].sum(). Apply a cost model (e.g., $X per minute) to the two resulting sums (True vs. False).
+
+Insight: This directly quantifies the financial impact of human factors, justifying investments in training, HMI (Human-Machine Interface) improvements, or process simplification.
+
+10. Which downtime factor exhibits the highest variability (Standard Deviation) in its duration?
+
+Methodology:
+
+Data: Merge LineDowntime.csv with DowntimeFactors.csv on Factor.
+
+Action: groupby('Description')['Downtime'].std(). Sort results descending.
+
+Insight: High variability signifies an unpredictable problem. This unpredictability is a major challenge for production scheduling and planning, even if the mean duration isn't the highest.
+
+11. What is the precise percentage breakdown of downtime (by minutes) attributed to Operator Error vs. Non-Operator Error?
+
+Methodology:
+
+Data: Merge LineDowntime.csv with DowntimeFactors.csv on Factor.
+
+Action: groupby('Operator_Error')['Downtime'].sum(). Calculate the percentage of each group relative to the total sum.
+
+Insight: Provides a clear, high-level metric for executive reporting on where to focus improvement efforts (People vs. Process/Technology).
+
+12. Is there a "cascade effect"? (e.g., do batches with 'Machine failure' [Factor 7] also have a statistically higher incidence of 'Machine adjustment' [Factor 6])?
+
+Methodology:
+
+Data: LineDowntime.csv
+
+Action: Create a pivot table: index='Batch', columns='Factor', values='Downtime', aggfunc='count'. Fill NaNs with 0. Calculate the correlation matrix (.corr()) between the 'Factor 7' and 'Factor 6' columns.
+
+Insight: A strong positive correlation suggests that one failure (e.g., a machine failure) leads to subsequent "fiddling" (adjustments), pointing to a poor recovery process or incomplete root cause analysis.
+
+Category 3: Operator Performance & Variability Analysis
+This category analyzes human performance, focusing on consistency, efficiency, and specific areas for training.
+
+13. Who is the most efficient operator, based on mean efficiency_ratio?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: groupby('operator')['efficiency_ratio'].mean(). Sort descending.
+
+Insight: Identifies top performers, whose techniques or practices (Best Practices) could be studied and standardized across other operators.
+
+14. Who is the most consistent operator, based on the lowest standard deviation in efficiency_ratio?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: groupby('operator')['efficiency_ratio'].std(). Sort ascending.
+
+Insight: Low variability (consistency) is often more valuable than a high, erratic average. This operator represents the most predictable and reliable asset.
+
+15. Which operator is associated with the highest cumulative "Operator Error" downtime minutes?
+
+Methodology:
+
+Data: Merge Manufacturing_Final.csv (for Batch, operator) with LineDowntime.csv (for Batch, Factor, Downtime). Then merge with DowntimeFactors.csv (for Factor, Operator_Error).
+
+Action: Filter for Operator_Error == True. Then, groupby('operator')['Downtime'].sum().
+
+Insight: Pinpoints specific individuals who require targeted retraining or support, and on which specific error types.
+
+16. Which operator has the highest average "Unexplained Time Loss" per batch?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Engineer the unexplained_loss column (see Q2). Then, groupby('operator')['unexplained_loss'].mean().
+
+Insight: This may indicate operators who are slow in their standard work (not captured as downtime) or who are not correctly logging micro-stops, highlighting a gap in training or discipline.
+
+17. What is the specific "Operator Error Profile" for each operator?
+
+Methodology:
+
+Data: Perform the triple-merge from Q15.
+
+Action: Filter for Operator_Error == True. Then, groupby(['operator', 'Description'])['Downtime'].sum().
+
+Insight: This breaks down the general "operator error" into specific, actionable categories (e.g., 'Mac' struggles with 'Batch change', 'Dee' struggles with 'Product spill'), allowing for highly specific, individualized training.
+
+Category 4: Product Portfolio & Changeover Efficiency Analysis
+This category analyzes performance based on the product being manufactured, identifying high-cost and low-efficiency SKUs.
+
+18. Which product flavor has the lowest mean efficiency_ratio?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: groupby('flavor')['efficiency_ratio'].mean(). Sort ascending.
+
+Insight: Identifies "problem products" that may require recipe simplification, different machine parameters, or re-engineering to improve flow.
+
+19. Which product flavor incurs the highest average total_downtime_min per batch?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: groupby('flavor')['total_downtime_min'].mean(). Sort descending.
+
+Insight: Shows which products are the "most difficult" to run, causing the most line stoppages. This can inform decisions about pricing, scheduling (e.g., run all at once), or even SKU rationalization.
+
+20. What is the mean "Batch change" (Factor 2) duration associated with each product flavor?
+
+Methodology:
+
+Data: Merge Manufacturing_Final.csv (for Batch, flavor) with LineDowntime.csv.
+
+Action: Filter for Factor == 2. Then, groupby('flavor')['Downtime'].mean().
+
+Insight: Reveals if certain products (e.g., those with strong colors, allergens, or high viscosity like 'Root Berry') take significantly longer to clean and change over, impacting overall line availability.
+
+21. What is the full downtime profile (by factor) for the single worst-performing product?
+
+Methodology:
+
+Data: First, identify the worst product from Q18 (e.g., 'Lemon lime'). Then perform a triple-merge (Q15).
+
+Action: Filter for flavor == 'Lemon lime'. Then, groupby('Description')['Downtime'].sum().
+
+Insight: Creates a "failure fingerprint" for the problem product. It shows why it's inefficient (e.g., 50% of its downtime is 'Labeling error', 30% is 'Machine adjustment').
+
+22. How does size ('2 L' vs. '600 ml') impact the mean efficiency_ratio and total_downtime_min?
+
+Methodology:
+
+Data: Manufacturing_Final.csv (already contains size, but merging with products.csv is also valid).
+
+Action: groupby('size')[['efficiency_ratio', 'total_downtime_min']].mean().
+
+Insight: Determines if changeovers for larger formats (which might involve different packaging modules, fillers, or labelers) are a significant source of inefficiency.
+
+23. What is the most time-consuming sequential product transition (e.g., 'Cola' -> 'Diet Cola' vs. 'Orange' -> 'Cola')?
+
+Methodology: (Advanced)
+
+Data: Manufacturing_Final.csv.
+
+Action: Sort the dataframe by start_time. Engineer a previous_flavor column using .shift(1). Merge this with LineDowntime.csv (filtered for Factor == 2). Finally, groupby(['previous_flavor', 'flavor'])['Downtime'].mean().
+
+Insight: This is the core of "Single-Minute Exchange of Die" (SMED) analysis. It pinpoints the exact changeovers (e.g., color-to-clear) that are most costly, guiding optimization efforts.
+
+Category 5: Time-Series, Trend, & Anomaly Analysis
+This category analyzes performance over time to identify trends, decay, or anomalies.
+
+24. How does the daily aggregate total_downtime_min trend over the entire period?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Convert date to datetime objects. groupby('date')['total_downtime_min'].sum(). Plot the result as a time-series line chart.
+
+Insight: Visually identifies if overall line stability is improving or degrading over time.
+
+25. How does the daily mean efficiency_ratio trend over the entire period?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Convert date to datetime objects. groupby('date')['efficiency_ratio'].mean(). Plot the result as a time-series line chart.
+
+Insight: Visually identifies if overall production efficiency is improving or degrading.
+
+26. Is there a "day-of-week" effect on performance (e.g., is Monday worse than Wednesday)?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Convert date to datetime and extract day_of_week. groupby('day_of_week')[['efficiency_ratio', 'total_downtime_min']].mean().
+
+Insight: Can reveal systemic human-factor issues, such as post-weekend "warm-up" problems (Monday) or end-of-week fatigue (Friday), informing staffing or maintenance schedules.
+
+27. Is there a "time-of-day" or "shift" effect on performance?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Convert start_time to time objects. Create a new Shift column based on time bins (e.g., 06:00-14:00 = Shift 1, etc.). groupby('Shift')['efficiency_ratio'].mean().
+
+Insight: Detects performance degradation across shifts, which could be due to differences in supervision, operator skill, or ambient conditions (e.g., heat in the afternoon).
+
+28. Is the proportion of "Operator Error" downtime decreasing over time (e.g., weekly)?
+
+Methodology:
+
+Data: Triple-merge (Q15) including date.
+
+Action: Convert date to datetime and extract Week. Create a pivot table: index='Week', columns='Operator_Error', values='Downtime', aggfunc='sum'. Convert to percentages (.apply(lambda x: x/x.sum(), axis=1)). Plot as a 100% stacked area chart.
+
+Insight: This tracks the effectiveness of training programs. Ideally, the area for True should shrink over time.
+
+29. What are the common attributes (Operator, Flavor) of the bottom 10th percentile batches by efficiency_ratio?
+
+Methodology:
+
+Data: Manufacturing_Final.csv
+
+Action: Calculate the 10% quantile: q_10 = df_final['efficiency_ratio'].quantile(0.1). Filter the dataframe: df_bottom_10 = df_final[df_final['efficiency_ratio'] <= q_10]. Apply .value_counts() to the operator and flavor columns of this new dataframe.
+
+Insight: Creates a profile of the worst failures, showing the most common combination of factors present during catastrophic performance.
+
+30. Is there a latent correlation between a specific operator and a non-operator-error factor?
+
+Methodology:
+
+Data: Triple-merge (Q15).
+
+Action: Filter for Operator_Error == False. Create a pivot table: index='operator', columns='Description', values='Downtime', aggfunc='sum'.
+
+Insight: This is an advanced "hidden factor" analysis. If one operator has a dramatically higher rate of "Conveyor belt jam" (a non-operator error), it may suggest they are running the machine in a way that induces mechanical failure, even if it's not technically an "error."
+
+
+
+
+=========================================================================
+Group 1: The "Hidden Factory" & Process Puzzles
+1. Where is our "Hidden Waste"?
+
+The Question: We see total_downtime_min, but what about the "Unexplained Time Loss"? This is the time we're losing even when the line is supposedly running. It's the silent killer of efficiency. Which operator and which product flavor has the highest average of this "ghost time" (duration_minutes - total_downtime_min - min_batch_time)?
+
+Why It's a Human Question: It assumes the official "downtime" log is incomplete. We're looking for waste that isn't being reported. This uncovers process drag, slow standard work, or operators who don't log micro-stops.
+
+Data Method: Manufacturing_Final.csv. Engineer the unexplained_loss column, then groupby(['operator', 'flavor'])['unexplained_loss'].mean().
+
+2. Who is our most unpredictable operator?
+
+The Question: Forget the average efficiency for a second. Which operator has the highest variance (standard deviation) in their efficiency_ratio?
+
+Why It's a Human Question: A plant manager hates unpredictability more than anything. An operator who is "fast" (high average) but also highly variable (sometimes great, sometimes terrible) is a scheduling nightmare. We're looking for the team's "wild card."
+
+Data Method: Manufacturing_Final.csv. groupby('operator')['efficiency_ratio'].std().
+
+3. Is our "Batch change" (Factor 2) a "real" error or just part of the job?
+
+The Question: DowntimeFactors.csv flags 'Batch change' as an Operator_Error = True. Is this fair? Let's challenge that. What is the baseline time for a 'Batch change'? How many changes fall above the 75th percentile (i.e., are "abnormally long"), and which operators are responsible for those specific long changes?
+
+Why It's a Human Question: It challenges the data's own definition. It separates "standard work" from a "true error." We're parsing nuance: is the operator at fault, or is the process definition simply wrong?
+
+Data Method: LineDowntime.csv. Filter for Factor == 2. Calculate quantile(0.75) on Downtime. Then filter for downtimes above this value and join with Manufacturing_Final.csv to see which operator is most frequent in this "long tail."
+
+Group 2: Behavioral Clues & Latent Problems
+4. Are some operators inducing machine failures?
+
+The Question: Let's look for a hidden correlation. Is there a specific operator who has a significantly higher rate of non-operator-error downtime, like 'Machine failure' (Factor 7) or 'Conveyor belt jam' (Factor 9)?
+
+Why It's a Human Question: This is a sensitive but critical "human" insight. It's not about blame (Operator_Error = False). It's about behavior. Maybe one operator runs the machine harder, ignores warning sounds, or aligns materials poorly, leading to a mechanical breakdown later. This is a latent problem.
+
+Data Method: Merge Manufacturing_Final.csv with LineDowntime.csv and DowntimeFactors.csv. Filter for Operator_Error == False. Then, create a pivot table: index='operator', columns='Description', values='Downtime', aggfunc='sum'. Look for outliers.
+
+5. What is an operator's "tell"?
+
+The Question: When an operator does have a true error, what is their specific "go-to" mistake? What is the single most frequent or most time-consuming "Operator Error" (Description) for each operator?
+
+Why It's a Human Question: We're moving from a general "Operator Error" bucket to a specific behavioral profile. This isn't for punishment; it's for precision training. "Mac" doesn't need "general training"; he needs specific coaching on "Label switch" (Factor 11) procedures.
+
+Data Method: Triple-merge all tables. Filter for Operator_Error == True. groupby(['operator', 'Description'])['Downtime'].agg(['sum', 'count']).
+
+6. Does "Time of Day" affect the type of mistake?
+
+The Question: We know performance might dip by shift, but let's go deeper. Do 'Machine adjustment' errors (Factor 6) happen more in the morning "warm-up" (e.g., 6:00-9:00), while 'Product spill' errors (Factor 5) happen more when fatigue sets in (e.g., after 16:00)?
+
+Why It's a Human Question: We're correlating error type with human factors like fatigue, shift changes, or "rush-to-finish" mentality. This helps us design better ergonomic schedules, plan maintenance, or add support staff at critical times.
+
+Data Method: Merge Manufacturing_Final.csv with LineDowntime.csv and DowntimeFactors.csv. Create a new Hour column from start_time. Then, groupby(['Hour', 'Description'])['Batch'].count(). Look for patterns.
+
+Group 3: Failure Forensics & Strategic Costs
+7. What's the real cost of our product variety?
+
+The Question: Which specific product-to-product transition is our biggest killer? We need to know the 'Batch change' (Factor 2) time not just "per product," but for the sequence (e.g., 'Orange' -> 'Lemon lime' vs. 'Lemon lime' -> 'Cola').
+
+Why It's a Human Question: This is a core strategic question. If changing from "Root Berry" (sticky? dark?) to "Diet Cola" (clear?) costs us 3x the downtime, it has massive implications for production scheduling. We might need a "Root Berry Day" to avoid this specific, costly changeover.
+
+Data Method: (Advanced) Sort Manufacturing_Final.csv by start_time. Create a previous_flavor column using .shift(1). Merge this with LineDowntime.csv (filtered for Factor == 2). Then groupby(['previous_flavor', 'flavor'])['Downtime'].mean().
+
+8. What's the "failure fingerprint" of our worst batches?
+
+The Question: Let's isolate the bottom 10% of batches by efficiency_ratio. For only this "disaster" group, what is the Top 3 Downtime Description?
+
+Why It's a Human Question: We're performing an autopsy on our worst failures. We're not looking at the "average" problem; we're looking at the profile of a catastrophe. If 'Machine failure' is the #1 cause in our average downtime but 'Inventory shortage' (Factor 4) is the #1 cause in our worst batches, it tells us that supply chain issues (not engineering) are our biggest existential risk.
+
+Data Method: Manufacturing_Final.csv. Find the 10th percentile efficiency_ratio. Filter the main table for batches < this value. Use the Batch numbers from this group to filter LineDowntime.csv. Then join with DowntimeFactors.csv and groupby('Description')['Downtime'].sum().
+
+9. Are we fixing the symptom or the disease?
+
+The Question: Do batches that experience a 'Machine failure' (Factor 7) also have a higher-than-average number of 'Machine adjustment' (Factor 6) events in the same batch?
+
+Why It's a Human Question: We're looking for a "cascade effect." This pattern suggests that after a major failure, the operator or maintenance team "fiddles" with the machine, making multiple adjustments. This means our "fix" isn't clean; we're just tinkering until it works, leading to more instability and a longer total recovery.
+
+Data Method: LineDowntime.csv. Create a pivot table: index='Batch', columns='Factor', values='Downtime', aggfunc='count'. Fill NaNs with 0. Then, check the correlation (.corr()) between column 7 and column 6.
+
+10. Is our "efficiency" metric lying to us?
+
+The Question: The efficiency_ratio is net_production_min / (duration_minutes - total_downtime_min). But what if the min_batch_time (the standard) is wrong? Let's find all batches with total_downtime_min == 0. For these "perfect" batches, what is the actual run time (net_production_min)? How does this real-world "best time" compare to the theoretical min_batch_time of 60?
+
+Why It's a Human Question: This is the ultimate "trust but verify" question. It challenges the most fundamental assumption in the entire dataset. If our "perfect" batches still take 65 minutes (not 60), then our entire efficiency_ratio is artificially deflated. We're chasing a standard that is physically impossible.
+
+Data Method: Manufacturing_Final.csv. Filter for total_downtime_min == 0. Look at the net_production_min (which equals duration_minutes in this case) for these rows. Compare its mean() to the min_batch_time column.
