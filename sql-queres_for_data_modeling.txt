@@ -1,0 +1,105 @@
+-- =====================================================================
+-- Data Modeling Script for Manufacturing Downtime
+-- Design: Star Schema
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 1. جداول الأبعاد (Dimension Tables)
+-- ---------------------------------------------------------------------
+
+PRINT 'Creating Dimension Tables...';
+
+-- أ. جدول المنتجات (من synthetic_products.csv)
+CREATE TABLE Dim_Product (
+    ProductKey NVARCHAR(100) PRIMARY KEY, -- المفتاح الأساسي هو كود المنتج
+    Flavor NVARCHAR(100),
+    Size NVARCHAR(100),
+    MinBatchTime INT
+);
+
+-- ب. جدول أسباب التوقف (من synthetic_downtime_factors.csv)
+CREATE TABLE Dim_DowntimeFactor (
+    FactorKey INT PRIMARY KEY, -- المفتاح الأساسي هو رقم السبب
+    Description NVARCHAR(255),
+    OperatorError BIT -- 1 لـ Yes و 0 لـ No
+);
+
+-- ج. جدول الزمن (يجب تعبئته بالتواريخ المطلوبة)
+CREATE TABLE Dim_Date (
+    DateKey DATE PRIMARY KEY,
+    Day INT,
+    Month INT,
+    Year INT,
+    Quarter INT,
+    DayOfWeekName NVARCHAR(50)
+    -- يمكنك إضافة أعمدة أخرى حسب الحاجة
+);
+
+PRINT 'Dimension Tables Created Successfully.';
+GO
+
+-- ---------------------------------------------------------------------
+-- 2. جداول الحقائق (Fact Tables)
+-- ---------------------------------------------------------------------
+
+PRINT 'Creating Fact Tables...';
+
+-- أ. جدول الإنتاجية (من synthetic_line_productivity.csv)
+CREATE TABLE Fact_Productivity (
+    ProductivityID INT IDENTITY(1,1) PRIMARY KEY,
+    Batch INT UNIQUE NOT NULL, -- مفتاح مهم لربط وقت التوقف
+    DateKey DATE FOREIGN KEY REFERENCES Dim_Date(DateKey),
+    ProductKey NVARCHAR(100) FOREIGN KEY REFERENCES Dim_Product(ProductKey),
+    OperatorName NVARCHAR(100),
+    StartTime TIME,
+    EndTime TIME
+);
+
+-- ب. جدول مؤقت (Staging) لبيانات التوقف (من synthetic_line_downtime.csv)
+-- هذا الجدول لاستقبال البيانات كما هي (Pivoted) قبل تحويلها
+CREATE TABLE Staging_LineDowntime (
+    Batch INT PRIMARY KEY,
+    [1] INT, [2] INT, [3] INT, [4] INT, [5] INT, [6] INT,
+    [7] INT, [8] INT, [9] INT, [10] INT, [11] INT, [12] INT
+);
+
+-- ج. جدول حقائق التوقف النهائي (Unpivoted)
+CREATE TABLE Fact_Downtime (
+    DowntimeID INT IDENTITY(1,1) PRIMARY KEY,
+    Batch INT FOREIGN KEY REFERENCES Fact_Productivity(Batch),
+    FactorKey INT FOREIGN KEY REFERENCES Dim_DowntimeFactor(FactorKey),
+    DowntimeMinutes INT
+);
+
+PRINT 'Fact Tables Created Successfully.';
+GO
+
+-- ---------------------------------------------------------------------
+-- 3. كود تحويل البيانات (ETL) لجدول التوقف
+-- ---------------------------------------------------------------------
+
+PRINT 'Populating Fact_Downtime using UNPIVOT...';
+
+-- هذا الكود يتم تشغيله *بعد* تحميل البيانات في جدول Staging_LineDowntime
+-- يقوم بعمل UNPIVOT لنقل البيانات إلى النموذج الصحيح
+INSERT INTO Fact_Downtime (Batch, FactorKey, DowntimeMinutes)
+SELECT
+    Batch,
+    FactorKey,
+    DowntimeMinutes
+FROM
+    Staging_LineDowntime
+UNPIVOT
+(
+    -- العمود الذي سيحتوي على القيم (مثل 9, 21, 17)
+    DowntimeMinutes
+    -- العمود الذي سيحتوي على أسماء الأعمدة الأصلية (1, 2, 3...)
+    FOR FactorKey IN ([1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11], [12])
+) AS unpvt
+WHERE
+    DowntimeMinutes > 0; -- تجاهل الأسباب التي لم تحدث (قيمتها صفر)
+
+PRINT 'Fact_Downtime Populated Successfully.';
+GO
+
+PRINT 'Data Model Creation Script Finished.';
