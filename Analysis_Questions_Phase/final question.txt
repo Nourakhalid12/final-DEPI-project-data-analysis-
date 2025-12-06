@@ -1,0 +1,171 @@
+### Category 1: Efficiency, Waste, & OEE Component Analysis
+
+**1. What are the central tendency and dispersion metrics (Mean, Median, Standard Deviation) for the efficiency_ratio?**
+* **Data:** `efficiency_ratio` column from `Manufacturing_Final.csv`.
+* **Action:** Calculated descriptive statistics.
+* **Insight:** The process has a Mean Efficiency of **84.0%** and a Standard Deviation of **15.2%**. This high deviation indicates significant process instability—predictability is a major issue.
+
+**2. What is the total quantified "Unexplained Time Loss" (Hidden Waste) in minutes?**
+* **Data:** `duration_minutes`, `total_downtime_min`, `min_batch_time`.
+* **Action:** Calculated `sum(duration_minutes - total_downtime_min - min_batch_time)`.
+* **Insight:** The total hidden waste is **2,663 minutes** (over 44 hours). This represents "ghost time" not captured by downtime logs, indicating slow standard work or unrecorded micro-stops.
+
+**3. What is the true "Performance" rate of the line (as an OEE component)?**
+* **Data:** `min_batch_time`, `net_production_min`.
+* **Action:** Calculated `Total_Ideal_Time / Total_Net_Production_Time`.
+* **Insight:** The Performance rate is **81.6%**. Even when the line is running, it runs at only ~82% of its design speed.
+
+**4. What is the true "Availability" rate of the line (as an OEE component)?**
+* **Data:** `duration_minutes`, `net_production_min`.
+* **Action:** Calculated `Total_Net_Production_Time / Total_Planned_Time`.
+* **Insight:** The Availability rate is **72.9%**, meaning the line is only producing product for roughly three-quarters of its scheduled time.
+
+**5. What is the "Perfect Batch" count, and what is its associated financial opportunity cost?**
+* **Data:** Filtered for `total_downtime_min == 0` AND `efficiency_ratio >= 1.0`.
+* **Action:** Counted rows meeting criteria.
+* **Insight:** The count is **0**. Not a single batch was both perfectly efficient and free of downtime, representing a 0% perfect pass yield.
+
+---
+
+### Category 2: Downtime Root Cause & Impact Analysis
+
+**6. What are the Top 3 downtime factors by total cumulative duration (minutes)?**
+* **Data:** `Downtime_Minutes`, `Description`.
+* **Action:** Grouped by Description and summed downtime.
+* **Insight:** 1. **Batch change** (8,789 min)
+    2. **Conveyor belt jam** (1,619 min)
+    3. **Labeling error** (1,499 min)
+
+**7. What are the Top 3 downtime factors by frequency of occurrence?**
+* **Data:** `Batch` count, `Description`.
+* **Action:** Grouped by Description and counted occurrences.
+* **Insight:** 1. **Batch change** (233 times)
+    2. **Labeling error** (83 times)
+    3. **Conveyor belt jam** (78 times)
+
+**8. What is the mean duration-per-occurrence for each downtime factor?**
+* **Data:** `Downtime_Minutes`, `Description`.
+* **Action:** Grouped by Description and calculated mean duration.
+* **Insight:** **Batch change** takes the longest on average (**37.7 min**), while mechanical issues like **Conveyor belt jams** average **20.8 min** per stop.
+
+**9. What is the financial cost of "Operator Error" downtime versus "Machine/Process" downtime?**
+* **Data:** `Operator_Error`, `Downtime_Minutes`.
+* **Action:** Summed downtime by Operator_Error category.
+* **Insight:** **Operator Error** accounts for **14,699 minutes**, nearly double the **8,015 minutes** lost to Machine/Process failures.
+
+**10. Which downtime factor exhibits the highest variability (Standard Deviation) in its duration?**
+* **Data:** `Downtime_Minutes`, `Description`.
+* **Action:** Calculated standard deviation for each factor.
+* **Insight:** **Batch change** has the highest variability (Std Dev ~17.8 min), indicating that changeover procedures are not standardized.
+
+**11. What is the precise percentage breakdown of downtime (by minutes) attributed to Operator Error vs. Non-Operator Error?**
+* **Data:** `Operator_Error`, `Downtime_Minutes`.
+* **Action:** Calculated percentage share of total downtime.
+* **Insight:** **64.7%** of all lost time is attributed to Operator Error, while **35.3%** is Non-Operator Error.
+
+**12. Is there a "cascade effect"? (e.g., do batches with 'Machine failure' also have high 'Machine adjustment'?)**
+* **Data:** `Factor` 7 and `Factor` 6.
+* **Action:** Calculated correlation coefficient between occurrences.
+* **Insight:** The correlation is **-0.01**, indicating **no cascade effect**. Failures are typically fixed cleanly without causing subsequent adjustments in the same batch.
+
+---
+
+### Category 3: Operator Performance & Variability Analysis
+
+**13. Who is the most efficient operator, based on mean efficiency_ratio?**
+* **Data:** `operator`, `efficiency_ratio`.
+* **Action:** Grouped by operator and calculated mean.
+* **Insight:** **Dennis** is the top performer with **89.5%** average efficiency.
+
+**14. Who is the most consistent operator, based on the lowest standard deviation in efficiency_ratio?**
+* **Data:** `operator`, `efficiency_ratio`.
+* **Action:** Grouped by operator and calculated standard deviation.
+* **Insight:** **Dennis** is the most consistent (**0.133** Std Dev), making him the most predictable asset.
+
+**15. Which operator is associated with the highest cumulative "Operator Error" downtime minutes?**
+* **Data:** `operator`, `Operator_Error`, `Downtime_Minutes`.
+* **Action:** Filtered for errors and summed downtime by operator.
+* **Insight:** **Charlie** has the most operator-error downtime (**2,063 minutes**), indicating a need for targeted support.
+
+**16. Which operator has the highest average "Unexplained Time Loss" per batch?**
+* **Data:** `operator`, `unexplained_loss`.
+* **Action:** Grouped by operator and calculated mean loss.
+* **Insight:** **Heidi** averages **~7.9 minutes** of unexplained loss per batch, suggesting undocumented micro-stops or slow standard work.
+
+**17. What is the specific "Operator Error Profile" for each operator?**
+* **Data:** `operator`, `Description`, `Downtime_Minutes`.
+* **Action:** Grouped by operator and description.
+* **Insight:** **Charlie's** primary issue is **Batch Changes** (1,103 min) followed by **Machine Adjustments**, creating a specific training roadmap.
+
+---
+
+### Category 4: Product Portfolio & Changeover Efficiency Analysis
+
+**18. Which product flavor has the lowest mean efficiency_ratio?**
+* **Data:** `flavor`, `efficiency_ratio`.
+* **Action:** Grouped by flavor and calculated mean.
+* **Insight:** **Lemon Lime** is the most difficult product to run, with an average efficiency of **81.2%**.
+
+**19. Which product flavor incurs the highest average total_downtime_min per batch?**
+* **Data:** `flavor`, `total_downtime_min`.
+* **Action:** Grouped by flavor and calculated mean downtime.
+* **Insight:** **Lemon Lime** averages **43.2 minutes** of downtime per batch, the highest of any flavor.
+
+**20. What is the mean "Batch change" (Factor 2) duration associated with each product flavor?**
+* **Data:** `flavor`, `Downtime_Minutes` (filtered for Factor 2).
+* **Action:** Calculated mean changeover time per flavor.
+* **Insight:** **Lemon Lime** changeovers are the slowest (**39.9 min**), while **Orange** is the fastest (**35.6 min**).
+
+**21. What is the full downtime profile (by factor) for the single worst-performing product?**
+* **Data:** Filtered for 'Lemon Lime', grouped by `Description`.
+* **Action:** Summed downtime by factor.
+* **Insight:** For Lemon Lime, **Batch Change** is the #1 loss (1,517 min), followed by **Label Switch** (354 min), suggesting specific packaging difficulties.
+
+**22. How does size ('2 L' vs. '600 ml') impact the mean efficiency_ratio and total_downtime_min?**
+* **Data:** `size`, `efficiency_ratio`, `total_downtime_min`.
+* **Action:** Grouped by size.
+* **Insight:** **2L** bottles run more efficiently (**88.5%**) with less downtime (**39.3 min**) compared to **600ml** bottles (**82.9%** / **41.6 min**).
+
+**23. What is the most time-consuming sequential product transition?**
+* **Data:** `flavor`, `previous_flavor` (engineered), `Downtime_Minutes`.
+* **Action:** Calculated mean downtime for specific transition pairs.
+* **Insight:** The transition from **Root Berry $\rightarrow$ Lemon Lime** is the costliest, averaging **48.0 minutes**.
+
+---
+
+### Category 5: Time-Series, Trend, & Anomaly Analysis
+
+**24. How does the daily aggregate total_downtime_min trend over the entire period?**
+* **Data:** `date`, `total_downtime_min`.
+* **Action:** Summed downtime by day.
+* **Insight:** Performance improved over the sample week. Downtime peaked on **Jan 1st (471 min)** and dropped to **Jan 5th (224 min)**.
+
+**25. How does the daily mean efficiency_ratio trend over the entire period?**
+* **Data:** `date`, `efficiency_ratio`.
+* **Action:** Averaged efficiency by day.
+* **Insight:** There is a clear **upward trend**, starting at **78%** on Jan 1st and reaching **96%** by Jan 5th.
+
+**26. Is there a "day-of-week" effect on performance?**
+* **Data:** `day_of_week`, `efficiency_ratio`.
+* **Action:** Averaged efficiency by day.
+* **Insight:** **Friday** is the worst performing day (**81.2%**), while **Sunday** is the best (**87.9%**).
+
+**27. Is there a "time-of-day" or "shift" effect on performance?**
+* **Data:** `start_time` (binned into shifts), `efficiency_ratio`.
+* **Action:** Averaged efficiency by shift.
+* **Insight:** **Shift 2 (08:00–16:00)** has the lowest efficiency (**83.0%**), while **Shift 1 (00:00–08:00)** performs best (**84.7%**).
+
+**28. Is the proportion of "Operator Error" downtime decreasing over time (e.g., weekly)?**
+* **Data:** `Week`, `Operator_Error`.
+* **Action:** Calculated % of downtime attributed to errors per week.
+* **Insight:** **No.** The share of Operator Error downtime **increased** from **61.5%** in Week 1 to **67.3%** in Week 5, indicating training is not currently effective.
+
+**29. What are the common attributes (Operator, Flavor) of the bottom 10th percentile batches?**
+* **Data:** Batches with `efficiency_ratio` in lowest 10%.
+* **Action:** Counted most frequent attributes.
+* **Insight:** The "Disaster Profile" is most commonly **Charlie running Cola** and **Heidi running Root Berry**.
+
+**30. Is there a latent correlation between a specific operator and a non-operator-error factor?**
+* **Data:** `operator`, `Description` (Non-Operator Error).
+* **Action:** Summed downtime for non-attributed errors by operator.
+* **Insight:** **Dee** has a high correlation with **Labeling Errors** (332 min) and **Charlie** with **Conveyor Jams** (289 min), suggesting their operating styles may be inducing these "mechanical" faults.
